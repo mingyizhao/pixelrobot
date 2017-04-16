@@ -2,14 +2,47 @@
 // @name        Pixel Robot
 // @namespace   http://github.com/mingyizhao/pixelrobot
 // @description Draw points semiautomatically.
+// @run-at      document-start
 // @include     https://pxls.space/*
 // @include     http://pxls.space/*
 // @downloadURL https://github.com/mingyizhao/pixelrobot/raw/master/pixelrobot.user.js
-// @version     0.2.1
+// @version     0.2.2
 // @grant       GM_notification
 // ==/UserScript==
 
+
 (function(){
+//----------------------------------------------------------------------------
+// Run as early soon as possible
+
+var mySend = function(){},
+    wsInterceptSuccess = false;
+
+WebSocket.prototype.send = (function(oldthis, oldfunc){
+    return function(m){
+        if(true === mySend(m)){
+            oldfunc.call(oldthis, m);
+            console.debug("SENT", m);
+        } else {
+            console.warn("CENSORED", m);
+        }
+    }
+})(WebSocket.prototype, WebSocket.prototype.send);
+
+if(undefined === unsafeWindow.App){
+    wsInterceptSuccess = true;
+}
+
+function notify(m) {
+    try{
+        GM_notification(m, "Pixel Robot");
+    }catch(e){
+        console.info(m);
+    }
+}
+
+
+var main = function(){
 //----------------------------------------------------------------------------
 
 var L, T, R, B, W, H;
@@ -216,13 +249,6 @@ $(me).find('button[name="manual"]').click(function(){
     forcePaintPoint();
 });
 
-function notify(m) {
-    try{
-        GM_notification(m, "Pixel Robot");
-    }catch(e){
-        console.info(m);
-    }
-}
 
 function powerSwitch(force){
     if(true === force || false === force){
@@ -433,7 +459,7 @@ setInterval(captchaReminder, attentionAlert * period);
 
 // ---- Websocket Interceptor
 
-function mySend(m){
+mySend = function mySend(m){
     // censor the traffic to server
     var l = [
         "placepixel", "captcha", 
@@ -448,15 +474,6 @@ function mySend(m){
     }
     return true;
 }
-unsafeWindow.App.socket.send = (function(oldthis, oldfunc){
-    return function(m){
-        if(true === mySend(m)){
-            console.debug("SEND", m);
-            oldfunc.call(oldthis, m);
-        }
-    }
-})(unsafeWindow.App.socket, unsafeWindow.App.socket.send);
-
 
 function myOnMessage(m){
     m = JSON.parse(m.data);
@@ -547,4 +564,23 @@ function forcePaintPoint(){
 notify("Pixel Robot ready. Control panel right top, click to start.");
 
 //----------------------------------------------------------------------------
+
+}; // end of main();
+
+
+if(wsInterceptSuccess){
+    function starter(){
+        if($ && unsafeWindow.App){
+            $(function(){ main(); });
+            return;
+        } else {
+            setTimeout(starter, 500);
+        }
+    }
+    starter();
+} else {
+    notify("Failed to start Pixelrobot.");
+}
+
+
 })();
