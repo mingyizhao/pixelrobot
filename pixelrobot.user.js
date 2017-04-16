@@ -6,7 +6,7 @@
 // @include     https://pxls.space/*
 // @include     http://pxls.space/*
 // @downloadURL https://github.com/mingyizhao/pixelrobot/raw/master/pixelrobot.user.js
-// @version     0.2.2
+// @version     0.2.3
 // @grant       GM_notification
 // ==/UserScript==
 
@@ -18,16 +18,16 @@
 var mySend = function(){},
     wsInterceptSuccess = false;
 
-WebSocket.prototype.send = (function(oldthis, oldfunc){
+WebSocket.prototype.send = (function(oldfunc){
     return function(m){
         if(true === mySend(m)){
-            oldfunc.call(oldthis, m);
+            oldfunc.call(this, m);
             console.debug("SENT", m);
         } else {
             console.warn("CENSORED", m);
         }
     }
-})(WebSocket.prototype, WebSocket.prototype.send);
+})(WebSocket.prototype.send);
 
 if(undefined === unsafeWindow.App){
     wsInterceptSuccess = true;
