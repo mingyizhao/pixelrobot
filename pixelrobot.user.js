@@ -5,7 +5,7 @@
 // @include     https://pxls.space/*
 // @include     http://pxls.space/*
 // @downloadURL https://github.com/mingyizhao/pixelrobot/raw/master/pixelrobot.user.js
-// @version     0.1.1
+// @version     0.2.1
 // @grant       GM_notification
 // ==/UserScript==
 
@@ -29,12 +29,29 @@ var stat = {
     eta: null,
 }
 
-var me = '#pixelrobot';
+// ---------------------------------------------------------------------------
+// Namespace Generation
 
-
+var NAMESPACE = ''
+function randchars(count){
+    var alphabet = "abcdefghijklmnopqrstuvwxyz", amax = alphabet.length;
+    var ret = '';
+    for(var i=0; i<count; i++){
+        ret += alphabet[Math.floor(Math.random() * amax)];
+    }
+    return ret;
+}
+NAMESPACE = randchars(5) + '-' + randchars(9);
+var me = '.' + NAMESPACE;
 
 // ---------------------------------------------------------------------------
 // Statistics
+
+function statReset(){
+    stat.count = 0;
+    stat.progress = [];
+    stat.eta = null;
+}
 
 function statCountPoint(){
     stat.count += 1;
@@ -85,22 +102,22 @@ var info = GM_info.script;
 
 var ui = [
 '<style>',
-'#pixelrobot{',
+'.pixelrobot{',
     'font-size: 0.8em;',
     'padding:2px;background:#000099;color:#FFFFFF;border-color:#00CCFF;',
 '}',
-'#pixelrobot button{',
+'.pixelrobot button{',
     'background:#3333CC;color:#FFFFFF;',
     'border-width:1px; border-color:#00CCFF; border-style: solid;',
     'width: 100%;',
     'margin:2px;padding:2px',
 '}',
-'#pixelrobot button.active{',
+'.pixelrobot button.active{',
     'background:#FFFFFF;color:#3333CC;',
 '}',
-'#pixelrobot input{width: 5em;}',
+'.pixelrobot input{width: 5em;}',
 '</style>',
-'<div id="pixelrobot"',
+'<div class="pixelrobot"',
 'style="',
     'position: absolute; right:0; top: 0; z-index:9999;',
 '">',
@@ -127,7 +144,7 @@ var ui = [
 '<div><button name="manual">Test/Force Paint Manually</button></div>',
 '<div><button name="startstop">Click to start robot.</button></div>',
 '</div>',
-].join("");
+].join("").replace(/pixelrobot/g, NAMESPACE);
 $(ui).appendTo('body');
 
 function loadTemplate(){
@@ -185,22 +202,12 @@ function assureSystemInited(){
     }
     $(me).find('input[name="R"]').val(R);
     $(me).find('input[name="B"]').val(B);
+    statReset();
     return true;
 }
 
 
-$(me).find('button[name="startstop"]').click(function(){
-    if(!power){
-        if(!assureSystemInited()) return;
-        power = true;
-        $(this).text("RUNNING...Click to stop robot.");
-        $(me).find('table input.input').attr('disabled', true);
-    } else {
-        power = false;
-        $(this).text("Click to start robot.");
-        $(me).find('table input.input').attr('disabled', false);
-    }
-});
+$(me).find('button[name="startstop"]').click(powerSwitch);
 
 $(me).find('input[type="file"]').on('change', loadTemplate);
 
@@ -214,6 +221,22 @@ function notify(m) {
         GM_notification(m, "Pixel Robot");
     }catch(e){
         console.info(m);
+    }
+}
+
+function powerSwitch(force){
+    if(true === force || false === force){
+        power = force;
+    } else {
+        power = !power;
+    }
+    if(power){
+        if(!assureSystemInited()) return;
+        $(me).find('button[name="startstop"]').text("RUNNING...Click to stop robot.");
+        $(me).find('table input.input').attr('disabled', true);
+    } else {
+        $(me).find('button[name="startstop"]').text("Click to start robot.");
+        $(me).find('table input.input').attr('disabled', false);
     }
 }
 
@@ -407,7 +430,33 @@ setInterval(captchaReminder, attentionAlert * period);
 
 
 
+
 // ---- Websocket Interceptor
+
+function mySend(m){
+    // censor the traffic to server
+    var l = [
+        "placepixel", "captcha", 
+    ];
+    m = JSON.parse(m);
+    if(l.indexOf(m.type.toLowerCase()) < 0){
+        notify("WARNING! System is doing suspicious thing. Please report this to author. For your safety robot will stop.");
+        console.warn("WARNING: Report followings to author:");
+        console.warn(m);
+        powerSwitch(false); // stop robot
+        return false;
+    }
+    return true;
+}
+unsafeWindow.App.socket.send = (function(oldthis, oldfunc){
+    return function(m){
+        if(true === mySend(m)){
+            console.debug("SEND", m);
+            oldfunc.call(oldthis, m);
+        }
+    }
+})(unsafeWindow.App.socket, unsafeWindow.App.socket.send);
+
 
 function myOnMessage(m){
     m = JSON.parse(m.data);
