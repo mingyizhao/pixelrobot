@@ -6,7 +6,7 @@
 // @include     https://pxls.space/*
 // @include     http://pxls.space/*
 // @downloadURL https://github.com/mingyizhao/pixelrobot/raw/master/pixelrobot.user.js
-// @version     0.2.3
+// @version     0.2.4
 // @grant       GM_notification
 // ==/UserScript==
 
@@ -531,7 +531,7 @@ function doPaint(){
         x = pendingPixel.tx,
         y = pendingPixel.ty;
     unsafeWindow.App.switchColor(color);
-    unsafeWindow.App.attemptPlace(x, y);
+    unsafeWindow.App.doPlace(x, y);
     console.log(
         "Paint color ", color, " to (", x, ",", y, ") from (",
         pendingPixel.sx, ",", pendingPixel.sy, ")."
@@ -570,7 +570,7 @@ notify("Pixel Robot ready. Control panel right top, click to start.");
 
 if(wsInterceptSuccess){
     function starter(){
-        if($ && unsafeWindow.App){
+        if(unsafeWindow.$ && unsafeWindow.App){
             $(function(){ main(); });
             return;
         } else {
