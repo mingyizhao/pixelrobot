@@ -6,9 +6,10 @@
 // @include     https://pxls.space/*
 // @include     http://pxls.space/*
 // @downloadURL https://github.com/mingyizhao/pixelrobot/raw/master/pixelrobot.user.js
-// @version     0.2.8
+// @version     1.1.0
 // @grant       GM_notification
 // @grant       unsafeWindow
+// @grant       window.close
 // ==/UserScript==
 
 
@@ -42,6 +43,13 @@ function notify(m) {
     }
 }
 
+var controlWindow = window.open(
+    "",
+    "",
+    "width=300px,height=500px,menubar=no"
+);
+
+
 
 var main = function(){
 //----------------------------------------------------------------------------
@@ -65,7 +73,7 @@ var stat = {
 
 // ---------------------------------------------------------------------------
 // Namespace Generation
-
+/*
 var NAMESPACE = ''
 function randchars(count){
     var alphabet = "abcdefghijklmnopqrstuvwxyz", amax = alphabet.length;
@@ -76,7 +84,7 @@ function randchars(count){
     return ret;
 }
 NAMESPACE = randchars(5) + '-' + randchars(9);
-var me = '.' + NAMESPACE;
+var me = '.' + NAMESPACE;*/
 
 // ---------------------------------------------------------------------------
 // Statistics
@@ -136,25 +144,21 @@ var info = GM_info.script;
 
 var ui = [
 '<style>',
-'.pixelrobot{',
+'body,table{',
     'font-size: 0.8em;',
     'padding:2px;background:#000099;color:#FFFFFF;border-color:#00CCFF;',
 '}',
-'.pixelrobot button{',
+'button{',
     'background:#3333CC;color:#FFFFFF;',
     'border-width:1px; border-color:#00CCFF; border-style: solid;',
     'width: 100%;',
     'margin:2px;padding:2px',
 '}',
-'.pixelrobot button.active{',
+'button.active{',
     'background:#FFFFFF;color:#3333CC;',
 '}',
-'.pixelrobot input{width: 5em;}',
+'input{width: 5em;}',
 '</style>',
-'<div class="pixelrobot"',
-'style="',
-    'position: absolute; right:0; top: 0; z-index:9999;',
-'">',
 '<strong>PSPC: Pxls Space Partial Conversion</strong><br />',
 '<div name="scriptinfo">',
 ('Version: ' + info.version),
@@ -177,13 +181,16 @@ var ui = [
 '</table>',
 '<div><button name="manual">Test/Force Paint Manually</button></div>',
 '<div><button name="startstop">Click to start robot.</button></div>',
-'</div>',
-].join("").replace(/pixelrobot/g, NAMESPACE);
-$(ui).appendTo('body');
+].join("");
+
+
+var $cw = function(f){ return $(controlWindow.document).find(f); };
+
+$(ui).appendTo($cw('body'));
 
 function loadTemplate(){
-    var preview = $(me).find('img[name="template"]')[0];
-    var file = $(me).find('input[type=file]')[0].files[0];
+    var preview = $cw('img[name="template"]')[0];
+    var file = $cw('input[type=file]')[0].files[0];
     var reader = new FileReader();
 
     console.log("Load image...");
@@ -193,7 +200,7 @@ function loadTemplate(){
         H = preview.height;
         console.log("Load image: width=", W, ", height=", H);
 
-        var canvas = $(me).find('canvas[name="template"]')[0];
+        var canvas = $cw('canvas[name="template"]')[0];
         canvas.width = W;
         canvas.height = H;
         canvas.getContext('2d').drawImage(preview, 0, 0, W, H);
@@ -219,8 +226,8 @@ function assureSystemInited(){
         return false;
     }
     try{
-        L = parseInt($(me).find('input[name="L"]').val());
-        T = parseInt($(me).find('input[name="T"]').val());
+        L = parseInt($cw('input[name="L"]').val());
+        T = parseInt($cw('input[name="T"]').val());
         R = L + W - 1;
         B = T + H - 1;
         if(!(
@@ -234,22 +241,29 @@ function assureSystemInited(){
         console.error(e, L, T, R, B);
         return false;
     }
-    $(me).find('input[name="R"]').val(R);
-    $(me).find('input[name="B"]').val(B);
+    $cw('input[name="R"]').val(R);
+    $cw('input[name="B"]').val(B);
     statReset();
     return true;
 }
 
 
-$(me).find('button[name="startstop"]').click(powerSwitch);
+$cw('button[name="startstop"]').click(powerSwitch);
 
-$(me).find('input[type="file"]').on('change', loadTemplate);
+$cw('input[type="file"]').on('change', loadTemplate);
 
-$(me).find('button[name="manual"]').click(function(){
+$cw('button[name="manual"]').click(function(){
     if(!assureSystemInited()) return;
     forcePaintPoint();
 });
 
+$(unsafeWindow).on('unload', function(){
+    controlWindow.close();
+});
+
+$(controlWindow).on('unload', function(){
+    window.close();
+})
 
 function powerSwitch(force){
     if(true === force || false === force){
@@ -259,16 +273,16 @@ function powerSwitch(force){
     }
     if(power){
         if(!assureSystemInited()) return;
-        $(me).find('button[name="startstop"]').text("RUNNING...Click to stop robot.");
-        $(me).find('table input.input').attr('disabled', true);
+        $cw('button[name="startstop"]').text("RUNNING...Click to stop robot.");
+        $cw('table input.input').attr('disabled', true);
     } else {
-        $(me).find('button[name="startstop"]').text("Click to start robot.");
-        $(me).find('table input.input').attr('disabled', false);
+        $cw('button[name="startstop"]').text("Click to start robot.");
+        $cw('table input.input').attr('disabled', false);
     }
 }
 
 function updateUI(){
-    $(me).find('[name="progress"]').text(
+    $cw('[name="progress"]').text(
         ((1 - canvasDifferences / templateSize) * 100.0).toString().slice(0,5) +
         " %, " +
         canvasDifferences +
@@ -277,21 +291,21 @@ function updateUI(){
 
     var cooldownDiff = cooldown - (new Date).getTime();
     if(cooldownDiff > 0){
-        $(me).find('[name="cooldown"]').text(
+        $cw('[name="cooldown"]').text(
             Math.round( cooldownDiff / 1000.0 ).toString() + " sec"
         );
     } else {
-        $(me).find('[name="cooldown"]').text("None");
+        $cw('[name="cooldown"]').text("None");
     }
 
     if(power){
-        $(me).find('[name="startstop"]').toggleClass('active');
+        $cw('[name="startstop"]').toggleClass('active');
     } else {
-        $(me).find('[name="startstop"]').removeClass('active');
+        $cw('[name="startstop"]').removeClass('active');
     }
 
-    $(me).find('[name="count"]').text(stat.count + " point(s) done.");
-    $(me).find('[name="eta"]').text((
+    $cw('[name="count"]').text(stat.count + " point(s) done.");
+    $cw('[name="eta"]').text((
         (null !== stat.eta) ? 
         (new Date(stat.eta)).toLocaleString() :
         'Unknown'
@@ -375,7 +389,7 @@ function rgba2Index(rgbaArray, ackTransparency){
 function readTemplateIndexed(){
     if(templateIndexed) return templateIndexed;
     // nx: 0...1, ny: 0...1
-    var canvas = $(me).find('canvas[name="template"]')[0];
+    var canvas = $cw('canvas[name="template"]')[0];
     var d = canvas.getContext('2d').getImageData(0, 0, W, H).data;
     templateIndexed = rgba2Index(d, true);
     templateSize = templateIndexed.length;
@@ -581,7 +595,7 @@ notify("Pixel Robot ready. Control panel right top, click to start.");
 }; // end of main();
 
 
-if(wsInterceptSuccess){
+if(wsInterceptSuccess && controlWindow){
     function starter(){
         if(unsafeWindow.jQuery && unsafeWindow.App){
             $(function(){ main(); });
@@ -592,7 +606,7 @@ if(wsInterceptSuccess){
     }
     starter();
 } else {
-    notify("Failed to start Pixelrobot.");
+    notify("Failed to start Pixelrobot. Refresh and try again.");
 }
 
 
