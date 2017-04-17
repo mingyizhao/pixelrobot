@@ -586,7 +586,8 @@ if(wsInterceptSuccess && controlWindow){
     }
     starter();
 } else {
-    notify("Failed to start Pixelrobot. Refresh and try again.");
+    notify("Failed to start Pixelrobot. Refresh and try again. If you have " +
+    "disabled popup windows, please enable them now for this site.");
 }
 
 
