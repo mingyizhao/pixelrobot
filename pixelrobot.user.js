@@ -6,7 +6,7 @@
 // @include     https://pxls.space/*
 // @include     http://pxls.space/*
 // @downloadURL https://github.com/mingyizhao/pixelrobot/raw/master/pixelrobot.user.js
-// @version     0.2.6
+// @version     0.2.8
 // @grant       GM_notification
 // ==/UserScript==
 
@@ -321,6 +321,9 @@ var palette = [
 ];
 
 // Color Index Converter
+// value: [0, 15] --- valid color index
+//            254 --- transparent
+//            255 --- undecided(not calculated)
 
 var colorIndexCache = [];
 for(var i=0; i<256; i++){
@@ -332,16 +335,17 @@ for(var i=0; i<256; i++){
     }
     colorIndexCache.push(s);
 }
-function getColorIndex(rgb){
-    if(255 != colorIndexCache[rgb[0]][rgb[1]][rgb[2]]){
-        return colorIndexCache[rgb[0]][rgb[1]][rgb[2]];
+function getColorIndex(rgba, ackTransparency){
+    if(ackTransparency && rgba[3] < 128) return 254;
+    if(255 != colorIndexCache[rgba[0]][rgba[1]][rgba[2]]){
+        return colorIndexCache[rgba[0]][rgba[1]][rgba[2]];
     }
     var compares = [], min = 9999999, sq = 0;
     for(var i=0; i<palette.length; i++){
         sq =(
-            Math.pow(rgb[0] - palette[i][0], 2) +
-            Math.pow(rgb[1] - palette[i][1], 2) +
-            Math.pow(rgb[2] - palette[i][2], 2)
+            Math.pow(rgba[0] - palette[i][0], 2) +
+            Math.pow(rgba[1] - palette[i][1], 2) +
+            Math.pow(rgba[2] - palette[i][2], 2)
         );
         compares.push(sq);
         if(sq < min) min = sq;
@@ -349,16 +353,16 @@ function getColorIndex(rgb){
     for(var i=0; i<compares.length; i++){
         if(compares[i] == min) break;
     }
-    colorIndexCache[rgb[0]][rgb[1]][rgb[2]] = i;
+    colorIndexCache[rgba[0]][rgba[1]][rgba[2]] = i;
     return i;
 }
 
-function rgba2Index(rgbaArray){
+function rgba2Index(rgbaArray, ackTransparency){
     var i = 0, j=0, imax = rgbaArray.length - 1;
     var olen = rgbaArray.length / 4;
     var output = new Uint8Array(olen);
     while(i <= imax){
-        output[j] = getColorIndex(rgbaArray.slice(i, i+3));
+        output[j] = getColorIndex(rgbaArray.slice(i, i+4), ackTransparency);
         i += 4;
         j += 1;
     }
@@ -372,7 +376,7 @@ function readTemplateIndexed(){
     // nx: 0...1, ny: 0...1
     var canvas = $(me).find('canvas[name="template"]')[0];
     var d = canvas.getContext('2d').getImageData(0, 0, W, H).data;
-    templateIndexed = rgba2Index(d);
+    templateIndexed = rgba2Index(d, true);
     templateSize = templateIndexed.length;
     return templateIndexed;
 }
@@ -380,7 +384,7 @@ function readTemplateIndexed(){
 function readCanvasIndexed(){
     var canvas = unsafeWindow.App.elements.board[0];
     var d = canvas.getContext('2d').getImageData(L, T, W, H).data;
-    return rgba2Index(d);
+    return rgba2Index(d, false);
 }
 
 // Canvas and Template Comparer
@@ -391,7 +395,7 @@ function compareCanvasToTemplate(){
     var diffArray = new Uint8Array(target.length);
     canvasDifferences = 0;
     for(var i=0; i<diffArray.length; i++){
-        if(source[i] == target[i]){
+        if(source[i] == target[i] || source[i] == 254){
             diffArray[i] = 0;
         } else {
             diffArray[i] = 1;
