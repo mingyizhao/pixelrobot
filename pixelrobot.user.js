@@ -6,7 +6,7 @@
 // @include     https://pxls.space/*
 // @include     http://pxls.space/*
 // @downloadURL https://github.com/mingyizhao/pixelrobot/raw/master/pixelrobot.user.js
-// @version     1.1.3
+// @version     1.1.4
 // @grant       GM_notification
 // @grant       unsafeWindow
 // @grant       window.close
@@ -475,7 +475,7 @@ mySend = function mySend(m){
         },
         {
             "type": function(i){ return i == "captcha" },
-            "token": function(i){ return /^[0-9a-zA-Z_\-]+$/.test(i) },
+            "token": function(i){ return /^[0-9a-zA-Z_\-]{300,400}$/.test(i) },
         }
     ], pass = true;
 
