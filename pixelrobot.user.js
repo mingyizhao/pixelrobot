@@ -6,7 +6,7 @@
 // @include     https://pxls.space/*
 // @include     http://pxls.space/*
 // @downloadURL https://github.com/mingyizhao/pixelrobot/raw/master/pixelrobot.user.js
-// @version     1.1.2
+// @version     1.1.3
 // @grant       GM_notification
 // @grant       unsafeWindow
 // @grant       window.close
