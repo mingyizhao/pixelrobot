@@ -6,7 +6,7 @@
 // @include     https://pxls.space/*
 // @include     http://pxls.space/*
 // @downloadURL https://github.com/mingyizhao/pixelrobot/raw/master/pixelrobot.user.js
-// @version     1.1.1
+// @version     1.1.2
 // @grant       GM_notification
 // @grant       unsafeWindow
 // @grant       window.close
@@ -464,18 +464,46 @@ setInterval(captchaReminder, attentionAlert * period);
 
 mySend = function mySend(m){
     // censor the traffic to server
-    var l = [
-        "placepixel", "captcha", 
-    ];
     m = JSON.parse(m);
-    if(l.indexOf(m.type.toLowerCase()) < 0){
-        notify("WARNING! System is doing suspicious thing. Please report this to author. For your safety robot will stop.");
-        console.warn("WARNING: Report followings to author:");
-        console.warn(m);
-        powerSwitch(false); // stop robot
-        return false;
+
+    var censor = [
+        {
+            "type": function(i){ return i == "placepixel" },
+            "x": function(i){ return Number.isInteger(i) && i < 2000 && i >= 0 },
+            "y": function(i){ return Number.isInteger(i) && i < 2000 && i >= 0 },
+            "color": function(i){ return Number.isInteger(i) && i < 16 && i >= 0 },
+        },
+        {
+            "type": function(i){ return i == "captcha" },
+            "token": function(i){ return /^[0-9a-zA-Z_\-]+$/.test(i) },
+        }
+    ], pass = true;
+
+    for(var i=0; i<censor.length; i++){
+        var template = censor[i];
+        pass = true;
+        if(pass) for(var k in template){
+            if(undefined === m[k]){
+                pass = false;
+                break;
+            }
+        };
+        if(pass) for(var k in m){
+            if(undefined === template[k] || !template[k](m[k])){
+                pass = false;
+                break;
+            }
+        };
+        if(pass) break;
     }
-    return true;
+
+    if(pass) return true;
+
+    notify("WARNING! System is doing suspicious thing. Please report this to author. For your safety robot will stop.");
+    console.warn("WARNING: Report followings to author:");
+    console.warn(m);
+    powerSwitch(false); // stop robot
+    return false;
 }
 
 function myOnMessage(m){
