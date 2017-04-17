@@ -6,14 +6,14 @@
 // @include     https://pxls.space/*
 // @include     http://pxls.space/*
 // @downloadURL https://github.com/mingyizhao/pixelrobot/raw/master/pixelrobot.user.js
-// @version     0.2.4
+// @version     0.2.6
 // @grant       GM_notification
 // ==/UserScript==
 
 
 (function(){
 //----------------------------------------------------------------------------
-// Run as early soon as possible
+// Run as early as possible
 
 var mySend = function(){},
     wsInterceptSuccess = false;
@@ -527,13 +527,21 @@ var pendingPixel = null, lastPendingPixelTime = 0;
 
 function doPaint(){
     if(null === pendingPixel) return;
-    var color = pendingPixel.c,
-        x = pendingPixel.tx,
-        y = pendingPixel.ty;
-    unsafeWindow.App.switchColor(color);
-    unsafeWindow.App.doPlace(x, y);
+    //unsafeWindow.App.switchColor(color);
+    //unsafeWindow.App.doPlace(x, y);
+    
+    unsafeWindow.App.socket.send(
+        JSON.stringify({
+            type: "placepixel",
+            x: pendingPixel.tx,
+            y: pendingPixel.ty,
+            color: pendingPixel.c,
+        })
+    );
+    
     console.log(
-        "Paint color ", color, " to (", x, ",", y, ") from (",
+        "Paint color ", pendingPixel.c,
+        " to (", pendingPixel.tx, ",", pendingPixel.ty, ") from (",
         pendingPixel.sx, ",", pendingPixel.sy, ")."
     );
     lockCooldown(60);
@@ -570,7 +578,7 @@ notify("Pixel Robot ready. Control panel right top, click to start.");
 
 if(wsInterceptSuccess){
     function starter(){
-        if(unsafeWindow.$ && unsafeWindow.App){
+        if(unsafeWindow.jQuery && unsafeWindow.App){
             $(function(){ main(); });
             return;
         } else {
