@@ -6,7 +6,7 @@
 // @include     https://pxls.space/*
 // @include     http://pxls.space/*
 // @downloadURL https://github.com/mingyizhao/pixelrobot/raw/master/pixelrobot.user.js
-// @version     1.1.0
+// @version     1.1.1
 // @grant       GM_notification
 // @grant       unsafeWindow
 // @grant       window.close
@@ -46,7 +46,7 @@ function notify(m) {
 var controlWindow = window.open(
     "",
     "",
-    "width=380em,height=460em,menubar=no"
+    "width=380em,height=460em,menubar=no;location=no;scrollbars=no"
 );
 
 
@@ -530,15 +530,15 @@ var pendingPixel = null, lastPendingPixelTime = 0;
 
 function doPaint(){
     if(null === pendingPixel) return;
-    //unsafeWindow.App.switchColor(color);
-    //unsafeWindow.App.doPlace(x, y);
+    var x = pendingPixel.tx, y = pendingPixel.ty, color = pendingPixel.c;
     
+    unsafeWindow.App.pendingPixel = {x: x, y: y, color: color};
     unsafeWindow.App.socket.send(
         JSON.stringify({
             type: "placepixel",
-            x: pendingPixel.tx,
-            y: pendingPixel.ty,
-            color: pendingPixel.c,
+            x: x,
+            y: y,
+            color: color,
         })
     );
     
