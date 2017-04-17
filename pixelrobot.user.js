@@ -6,8 +6,9 @@
 // @include     https://pxls.space/*
 // @include     http://pxls.space/*
 // @downloadURL https://github.com/mingyizhao/pixelrobot/raw/master/pixelrobot.user.js
-// @version     0.2.6
+// @version     0.2.7
 // @grant       GM_notification
+// @grant       unsafeWindow
 // ==/UserScript==
 
 
@@ -503,10 +504,10 @@ function myOnMessage(m){
     if("cooldown" == m.type){
         var dt = m.wait;
         if(dt < 15) dt = 15;
-        dt += Math.floor(Math.random() * 10);
+        dt += 6 + Math.floor(Math.random() * 10);
         notify("Cooldown active: " + dt + " seconds.");
         lockCooldown(dt);
-        markPainted((m.wait > 120));
+        markPainted((m.wait > 100));
         return;
     }
 }
