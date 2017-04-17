@@ -46,7 +46,7 @@ function notify(m) {
 var controlWindow = window.open(
     "",
     "",
-    "width=300px,height=500px,menubar=no"
+    "width=380em,height=460em,menubar=no"
 );
 
 
@@ -70,21 +70,6 @@ var stat = {
     progress: [],
     eta: null,
 }
-
-// ---------------------------------------------------------------------------
-// Namespace Generation
-/*
-var NAMESPACE = ''
-function randchars(count){
-    var alphabet = "abcdefghijklmnopqrstuvwxyz", amax = alphabet.length;
-    var ret = '';
-    for(var i=0; i<count; i++){
-        ret += alphabet[Math.floor(Math.random() * amax)];
-    }
-    return ret;
-}
-NAMESPACE = randchars(5) + '-' + randchars(9);
-var me = '.' + NAMESPACE;*/
 
 // ---------------------------------------------------------------------------
 // Statistics
@@ -144,15 +129,14 @@ var info = GM_info.script;
 
 var ui = [
 '<style>',
-'body,table{',
-    'font-size: 0.8em;',
-    'padding:2px;background:#000099;color:#FFFFFF;border-color:#00CCFF;',
+'body,table,button{',
+    'font-family: monospace;',
+    'padding:0.1em;margin:0.1em;background:#000099;color:#FFFFFF;border-color:#00CCFF;',
 '}',
 'button{',
     'background:#3333CC;color:#FFFFFF;',
-    'border-width:1px; border-color:#00CCFF; border-style: solid;',
+    'border-width:0.1em; border-color:#00CCFF; border-style: solid;',
     'width: 100%;',
-    'margin:2px;padding:2px',
 '}',
 'button.active{',
     'background:#FFFFFF;color:#3333CC;',
@@ -170,7 +154,7 @@ var ui = [
     '<tr><td /><td><input class="input" type="text" name="T" placeholder="T" value="0" /></td><td /></tr>',
     '<tr>',
         '<td><input class="input" type="text" name="L" value="0" placeholder="L" /></td>',
-        '<td><canvas name="template" style="width:150px; height:150px;"></canvas></td>',
+        '<td><canvas name="template" style="width:15em; height:15em;"></canvas></td>',
         '<td><input type="text" name="R" placeholder="R" disabled/></td>',
     '</tr>',
     '<tr><td /><td><input type="text" name="B" placeholder="B" disabled/></td><td /></tr>',
