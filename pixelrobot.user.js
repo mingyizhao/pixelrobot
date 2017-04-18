@@ -6,7 +6,7 @@
 // @include     https://pxls.space/*
 // @include     http://pxls.space/*
 // @downloadURL https://github.com/mingyizhao/pixelrobot/raw/master/pixelrobot.user.js
-// @version     1.1.7
+// @version     1.2.1
 // @grant       GM_notification
 // @grant       unsafeWindow
 // @grant       window.close
@@ -58,11 +58,11 @@ var myRecv2 = function(m){
         }
     }
     WebSocket.prototype.onOpen = function(e){
-        console.log('  OPEN', arguments);
+        //console.log('  OPEN', arguments);
         this.listeners.onopen(e);
     }
     WebSocket.prototype.onMessage = function(e){
-        console.debug('  RECV', e.data);
+        //console.debug('  RECV', e.data);
         myRecv(e);
         myRecv2(e);
         this.listeners.onmessage(e);
@@ -142,6 +142,8 @@ var stat = {
     progress: [],
     eta: null,
 };
+
+var testingProtocol = true, testingProtocolFailed = false;
 
 // ---------------------------------------------------------------------------
 // Statistics
@@ -243,6 +245,8 @@ var ui = [
 '</div>',
 '<div name="banned" class="error hidden">This account is banned.</div>',
 '<div name="nologin" class="error">You are not logged in.</div>',
+'<div name="testing" class="hidden">Verifying protocol...</div>',
+'<div name="testfailed" class="error hidden">Protocol error. Please contact author.</div>',
 ].join("");
 
 
@@ -374,10 +378,12 @@ function updateUI(){
     ));
 
     $cw('div[name="normal"]').toggleClass(
-        'hidden', !(user.name && !user.banned)
+        'hidden', !(!testingProtocol && !testingProtocolFailed && user.name && !user.banned)
     );
     $cw('div[name="banned"]').toggleClass('hidden', !user.banned);
     $cw('div[name="nologin"]').toggleClass('hidden', !!user.name);
+    $cw('div[name="testing"]').toggleClass('hidden', !(user.name && testingProtocol));
+    $cw('div[name="testfailed"]').toggleClass('hidden', !testingProtocolFailed);
     if(user.name){
         controlWindow.document.title = user.name;
     }
@@ -528,6 +534,7 @@ function lockCooldown(seconds){
 }
 
 function heartbeat(){
+    testingProtocolDispatch();
     updateUI();
     if(!power) return;
     if(waitCaptcha) return;
@@ -548,12 +555,10 @@ setInterval(captchaReminder, attentionAlert * period);
 
 
 
-// ---- Websocket Interceptor
+// ---------------------------------------------------------------------------
+// Websocket Interceptor
 
-mySend = function mySend(m){
-    // censor the traffic to server
-    m = JSON.parse(m);
-
+function censorOutgoing(m){
     var censor = [
         {
             "type": function(i){ return i == "place" },
@@ -585,7 +590,20 @@ mySend = function mySend(m){
         if(pass) break;
     }
 
-    if(pass) return true;
+    return pass;
+}
+
+mySend = function mySend(m){
+    // censor the traffic to server
+    m = JSON.parse(m);
+    var canPass = censorOutgoing(m);
+
+    if(testingProtocol){
+        testingProtocolOutgoingCallback(m, canPass);
+        return false;
+    }
+
+    if(canPass) return true;
 
     notify("WARNING! System is doing suspicious thing. Please report this to author. For your safety robot will stop.");
     console.warn("WARNING: Report followings to author:");
@@ -634,13 +652,56 @@ myRecv = function(m){
 }
 
 
-// ---- point painter
+// ---------------------------------------------------------------------------
+// Protocol Analyzer
+
+var testingProtocolStarted = false;
+
+function testingProtocolOutgoingCallback(msg, canPass){
+    if(!testingProtocol) return;
+    if(!testingProtocolStarted) return;
+    testingProtocolStarted = false;
+    console.info("Protocol test:", msg, canPass);
+    if(!canPass){
+        testingProtocolFailed = true;
+    }
+    testingProtocol = false;
+}
+
+function testingProtocolDispatch(){
+    // See if needed to start a test
+    if(!testingProtocol) return;
+    // Start a test by clicking on canvas directly
+    if(!user.name || user.banned) return;
+    
+    console.info("Start protocol test...");
+    testingProtocolStarted = true;
+
+    var e = {
+        clientX: Math.floor(window.innerWidth * Math.random()),
+        clientY: Math.floor(window.innerHeight * Math.random()),
+        button: 0,
+    };
+    var emd = new MouseEvent('mousedown', e),
+        emu = new MouseEvent('mouseup', e);
+
+    $('.palette-color:first').trigger('click');
+
+    var canvas = $('canvas')[0];
+    canvas.dispatchEvent(emd);
+    canvas.dispatchEvent(emu);
+}
+
+
+// ---------------------------------------------------------------------------
+// Point Painter
 
 var pendingPixel = null, lastPendingPixelTime = 0;
 
 function doPaint(){
     if(null === pendingPixel) return;
-    if(user.banned) return;
+    if(!user.name || user.banned) return;
+    if(testingProtocolFailed) return;
     var x = pendingPixel.tx, y = pendingPixel.ty, color = pendingPixel.c;
     
     //unsafeWindow.App.pendingPixel = {x: x, y: y, color: color};
