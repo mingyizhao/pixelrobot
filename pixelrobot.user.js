@@ -36,6 +36,13 @@ var myRecv2 = function(m){
     }
 };
 
+var myInject = function(m){
+    var e = {data: JSON.stringify(m)};
+    for(var i in openWebSockets){
+        openWebSockets[i].onmessage(e);
+    }
+};
+
 (function fuck_websocket_up(){
     var nativeWebSocket = window.WebSocket;
     
@@ -660,11 +667,14 @@ var testingProtocolStarted = false;
 function testingProtocolOutgoingCallback(msg, canPass){
     if(!testingProtocol) return;
     if(!testingProtocolStarted) return;
+    
     testingProtocolStarted = false;
+    
     console.info("Protocol test:", msg, canPass);
     if(!canPass){
         testingProtocolFailed = true;
     }
+    myInject({ type: "cooldown", wait: 3 });
     testingProtocol = false;
 }
 
@@ -673,6 +683,11 @@ function testingProtocolDispatch(){
     if(!testingProtocol) return;
     // Start a test by clicking on canvas directly
     if(!user.name || user.banned) return;
+    if(testingProtocolStarted){
+        testingProtocolStarted = false;
+        testingProtocolFailed = true;
+        return;
+    }
     
     console.info("Start protocol test...");
     testingProtocolStarted = true;
@@ -745,8 +760,12 @@ function paintPoint(){
     return true;
 }
 
-function forcePaintPoint(){
+function cancelPaintPoint(){
     pendingPixel = null;
+}
+
+function forcePaintPoint(){
+    cancelPaintPoint();
     paintPoint();
 }
 
