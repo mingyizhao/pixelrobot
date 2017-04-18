@@ -6,7 +6,7 @@
 // @include     https://pxls.space/*
 // @include     http://pxls.space/*
 // @downloadURL https://github.com/mingyizhao/pixelrobot/raw/master/pixelrobot.user.js
-// @version     1.1.6
+// @version     1.1.7
 // @grant       GM_notification
 // @grant       unsafeWindow
 // @grant       window.close
@@ -19,7 +19,22 @@
 
 var mySend = function(){},
     myRecv = function(){},
-    openWebSockets = [];
+    openWebSockets = [],
+    user = {};
+
+var myRecv2 = function(m){
+    try{
+        m = JSON.parse(m.data);
+    }catch(e){
+        console.error(m);
+    }
+    if("userinfo" == m.type){
+        // update user info
+        user.name = m.name;
+        user.banned = Boolean(m.banned);
+        return;
+    }
+};
 
 (function fuck_websocket_up(){
     var nativeWebSocket = window.WebSocket;
@@ -47,8 +62,9 @@ var mySend = function(){},
         this.listeners.onopen(e);
     }
     WebSocket.prototype.onMessage = function(e){
-        console.log('  RECV', e.data);
+        console.debug('  RECV', e.data);
         myRecv(e);
+        myRecv2(e);
         this.listeners.onmessage(e);
     }
     Object.defineProperty(WebSocket.prototype, 'readyState', {
@@ -125,7 +141,7 @@ var stat = {
     count: 0,
     progress: [],
     eta: null,
-}
+};
 
 // ---------------------------------------------------------------------------
 // Statistics
@@ -185,6 +201,8 @@ var info = GM_info.script;
 
 var ui = [
 '<style>',
+'.hidden{ display: none; }',
+'.error{ background:#FFFFFF;color:#AA0000;font-weight:bold; }',
 'body,table,button{',
     'font-family: monospace;',
     'padding:0.1em;margin:0.1em;background:#000099;color:#FFFFFF;border-color:#00CCFF;',
@@ -219,8 +237,12 @@ var ui = [
     '<tr><td>Count:</td><td colspan="2" name="count" /></tr>',
     '<tr><td>ETA:</td><td colspan="2" name="eta" /></tr>',
 '</table>',
-'<div><button name="manual">Test/Force Paint Manually</button></div>',
-'<div><button name="startstop">Click to start robot.</button></div>',
+'<div name="normal" class="hidden">',
+    '<div><button name="manual">Test/Force Paint Manually</button></div>',
+    '<div><button name="startstop">Click to start robot.</button></div>',
+'</div>',
+'<div name="banned" class="error hidden">This account is banned.</div>',
+'<div name="nologin" class="error">You are not logged in.</div>',
 ].join("");
 
 
@@ -350,6 +372,16 @@ function updateUI(){
         (new Date(stat.eta)).toLocaleString() :
         'Unknown'
     ));
+
+    $cw('div[name="normal"]').toggleClass(
+        'hidden', !(user.name && !user.banned)
+    );
+    $cw('div[name="banned"]').toggleClass('hidden', !user.banned);
+    $cw('div[name="nologin"]').toggleClass('hidden', !!user.name);
+    if(user.name){
+        controlWindow.document.title = user.name;
+    }
+
 }
 
 
@@ -589,9 +621,12 @@ myRecv = function(m){
 
     if("cooldown" == m.type){
         var dt = m.wait;
-        if(dt < 15) dt = 15;
-        dt += 6 + Math.floor(Math.random() * 10);
-        notify("Cooldown active: " + dt + " seconds.");
+        if(dt < 5){
+            dt = 5;
+        } else {
+            dt += 6 + Math.floor(Math.random() * 10);
+            notify("Cooldown active: " + dt + " seconds.");
+        }
         lockCooldown(dt);
         markPainted((m.wait > 100));
         return;
@@ -605,6 +640,7 @@ var pendingPixel = null, lastPendingPixelTime = 0;
 
 function doPaint(){
     if(null === pendingPixel) return;
+    if(user.banned) return;
     var x = pendingPixel.tx, y = pendingPixel.ty, color = pendingPixel.c;
     
     //unsafeWindow.App.pendingPixel = {x: x, y: y, color: color};
@@ -629,8 +665,12 @@ function doPaint(){
 }
 
 function markPainted(confidence){
+    if(confidence){
+        statCountPoint();
+    } else {
+        doPaint();
+    }
     pendingPixel = null;
-    if(confidence) statCountPoint();
 }
 
 function paintPoint(){
@@ -650,7 +690,7 @@ function forcePaintPoint(){
 }
 
 
-notify("Pixel Robot ready. Control panel right top, click to start.");
+notify("Pixel Robot ready.");
 
 //----------------------------------------------------------------------------
 
