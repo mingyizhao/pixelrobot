@@ -6,7 +6,7 @@
 // @include     https://pxls.space/*
 // @include     http://pxls.space/*
 // @downloadURL https://github.com/mingyizhao/pixelrobot/raw/master/pixelrobot.user.js
-// @version     1.1.4
+// @version     1.1.6
 // @grant       GM_notification
 // @grant       unsafeWindow
 // @grant       window.close
@@ -18,22 +18,78 @@
 // Run as early as possible
 
 var mySend = function(){},
-    wsInterceptSuccess = false;
+    myRecv = function(){},
+    openWebSockets = [];
 
-WebSocket.prototype.send = (function(oldfunc){
-    return function(m){
-        if(true === mySend(m)){
-            oldfunc.call(this, m);
-            console.debug("SENT", m);
+(function fuck_websocket_up(){
+    var nativeWebSocket = window.WebSocket;
+    
+    var WebSocket = unsafeWindow.WebSocket = window.WebSocket = function(uri){
+        console.log('new WebSocket created', uri);
+        this.websocket = new nativeWebSocket(uri);
+        this.websocket.onopen = this.onOpen.bind(this);
+        this.websocket.onmessage = this.onMessage.bind(this);
+        this.listeners = {onmessage: function(){}, onopen: function(){}};
+
+        openWebSockets.push(this);
+    };
+
+    WebSocket.prototype.send = function(msg){
+        if(true === mySend(msg)){
+            this.websocket.send.apply(this.websocket, arguments);
+            console.log('  SENT', msg);
         } else {
-            console.warn("CENSORED", m);
+            console.warn('CENSOR', msg);
         }
     }
-})(WebSocket.prototype.send);
+    WebSocket.prototype.onOpen = function(e){
+        console.log('  OPEN', arguments);
+        this.listeners.onopen(e);
+    }
+    WebSocket.prototype.onMessage = function(e){
+        console.log('  RECV', e.data);
+        myRecv(e);
+        this.listeners.onmessage(e);
+    }
+    Object.defineProperty(WebSocket.prototype, 'readyState', {
+        get: function() {
+          return this.websocket.readyState;
+        }
+    });
+    Object.defineProperty(WebSocket.prototype, 'onopen', {
+        get: function() {
+            return this.listeners.onopen;
+        },
+        set: function(fn) {
+            this.listeners.onopen = fn;
+        }
+    });
+    Object.defineProperty(WebSocket.prototype, 'onclose', {
+        get: function() {
+            return this.websocket.onclose;
+        },
+        set: function(fn) {
+            this.websocket.onclose = fn;
+        }
+    });
+    Object.defineProperty(WebSocket.prototype, 'onmessage', {
+        get: function() {
+            return this.listeners.onmessage;
+        },
+        set: function(fn) {
+            this.listeners.onmessage = fn;
+        }
+    });
+    Object.defineProperty(WebSocket.prototype, 'onerror', {
+        get: function() {
+            return this.websocket.onerror;
+        },
+        set: function(fn) {
+            this.websocket.onerror = fn;
+        }
+    });
+})();
 
-if(undefined === unsafeWindow.App){
-    wsInterceptSuccess = true;
-}
 
 function notify(m) {
     try{
@@ -381,7 +437,7 @@ function readTemplateIndexed(){
 }
 
 function readCanvasIndexed(){
-    var canvas = unsafeWindow.App.elements.board[0];
+    var canvas = $('canvas')[0];
     var d = canvas.getContext('2d').getImageData(L, T, W, H).data;
     return rgba2Index(d, false);
 }
@@ -468,7 +524,7 @@ mySend = function mySend(m){
 
     var censor = [
         {
-            "type": function(i){ return i == "placepixel" },
+            "type": function(i){ return i == "place" },
             "x": function(i){ return Number.isInteger(i) && i < 2000 && i >= 0 },
             "y": function(i){ return Number.isInteger(i) && i < 2000 && i >= 0 },
             "color": function(i){ return Number.isInteger(i) && i < 16 && i >= 0 },
@@ -506,7 +562,7 @@ mySend = function mySend(m){
     return false;
 }
 
-function myOnMessage(m){
+myRecv = function(m){
     m = JSON.parse(m.data);
 
     if("captcha_required" == m.type){
@@ -541,15 +597,6 @@ function myOnMessage(m){
         return;
     }
 }
-unsafeWindow.App.socket.onmessage = (function(oldfunc){
-    return function(m){
-        if(false !== myOnMessage(m)){
-            oldfunc(m);
-        }
-    }
-})(unsafeWindow.App.socket.onmessage);
-
-
 
 
 // ---- point painter
@@ -560,15 +607,18 @@ function doPaint(){
     if(null === pendingPixel) return;
     var x = pendingPixel.tx, y = pendingPixel.ty, color = pendingPixel.c;
     
-    unsafeWindow.App.pendingPixel = {x: x, y: y, color: color};
-    unsafeWindow.App.socket.send(
-        JSON.stringify({
-            type: "placepixel",
-            x: x,
-            y: y,
-            color: color,
-        })
-    );
+    //unsafeWindow.App.pendingPixel = {x: x, y: y, color: color};
+
+    if(openWebSockets.length == 1){
+        openWebSockets[0].send(
+            JSON.stringify({
+                type: "place",
+                x: x,
+                y: y,
+                color: color,
+            })
+        );
+    }
     
     console.log(
         "Paint color ", pendingPixel.c,
@@ -607,19 +657,26 @@ notify("Pixel Robot ready. Control panel right top, click to start.");
 }; // end of main();
 
 
-if(wsInterceptSuccess && controlWindow){
+function startFailed(){
+    notify("Failed to start Pixelrobot. Refresh and try again. If you have " +
+    "disabled popup windows, please enable them now for this site.");
+}
+
+if(controlWindow){
+    var tryStart = 0;
     function starter(){
-        if(unsafeWindow.jQuery && unsafeWindow.App){
+        if(tryStart > 5) return startFailed();
+        if(unsafeWindow.jQuery && openWebSockets.length){
             $(function(){ main(); });
             return;
         } else {
-            setTimeout(starter, 500);
+            tryStart += 1;
+            setTimeout(starter, 1000);
         }
     }
     starter();
 } else {
-    notify("Failed to start Pixelrobot. Refresh and try again. If you have " +
-    "disabled popup windows, please enable them now for this site.");
+    startFailed();
 }
 
 
