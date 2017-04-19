@@ -563,7 +563,7 @@ mySend = function mySend(m){
         },
         {
             "type": function(i){ return i == "captcha" },
-            "token": function(i){ return /^[0-9a-zA-Z_\-]{300,400}$/.test(i) },
+            "token": function(i){ return /^[0-9a-zA-Z_\-]{300,500}$/.test(i) },
         }
     ], pass = true;
 
